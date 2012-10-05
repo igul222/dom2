@@ -5,8 +5,30 @@
     (window.DOMBookmarklet = function() {
 
       function get3DPageModel() {
-        // TODO: implement
+        var objects = [];
+
+        var recursivelyAddElementToObjects = function(e, zlevel) {
+          var offset = e.offset();
+          objects.push({
+            x: offset.left, 
+            y: offset.top, 
+            z: zlevel * 20, 
+            width: e.width(), 
+            length: e.height(), 
+            height: zlevel * 20
+          });
+          e.children().each(function() {
+            recursivelyAddElementToObjects($(this), zlevel + 1);
+          });
+        };
+
+        recursivelyAddElementToObjects($('body'), 1);
+        return objects;
       }
+
+      $(function() {
+        console.log(get3DPageModel());
+      });
 
     })();
   }
