@@ -14,8 +14,8 @@
             y: offset.top, 
             z: zlevel * 20, 
             width: e.width(), 
-            length: e.height(), 
-            height: zlevel * 20
+            height: e.height(), 
+            depth: zlevel * 20,
           });
           e.children().each(function() {
             recursivelyAddElementToObjects($(this), zlevel + 1);
@@ -27,41 +27,50 @@
       }
 
       $(function() {
-        var objects = get3DPageObjects();
-
-        var camera, scene, renderer;
-        var geometry, material, mesh;
+        var camera, scene, renderer, controls;
+        var clock = new THREE.Clock();
 
         init();
         animate();
 
         function init() {
           camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-          camera.position.z = 1000;
+          camera.position.z = 500;
 
+          controls = new THREE.FirstPersonControls(camera);
+          controls.movementSpeed = 1000;
+          controls.lookSpeed = 0.1;
           scene = new THREE.Scene();
 
-          geometry = new THREE.CubeGeometry( 200, 200, 200 );
-          material = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe: true } );
+          var objects = get3DPageObjects();
 
-          mesh = new THREE.Mesh( geometry, material );
-          scene.add( mesh );
+          for(var i in objects) {
+            var o = objects[i];
+            
+            var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth);
+            var material = new THREE.MeshBasicMaterial( { color: 0xff00ff*Math.random(), wireframe: false } );
+
+            var mesh = new THREE.Mesh( geometry, material );
+            mesh.position.x = o.x;
+            mesh.position.y = o.z;
+            mesh.position.z = o.y;
+            scene.add(mesh);
+          }
 
           renderer = new THREE.CanvasRenderer();
           renderer.setSize( window.innerWidth, window.innerHeight );
 
           document.body.appendChild( renderer.domElement );
-          $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#000');
+          $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#555');
         }
 
         function animate() {
           // note: three.js includes requestAnimationFrame shim
-          requestAnimationFrame( animate );
+          requestAnimationFrame(animate);
 
-          mesh.rotation.x += 0.01;
-          mesh.rotation.y += 0.02;
+          controls.update(clock.getDelta());
 
-          renderer.render( scene, camera );
+          renderer.render(scene, camera);
         }
 
 
