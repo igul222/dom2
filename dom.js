@@ -61,7 +61,7 @@
             addBlock(o.x, o.y, o.z, o.width, o.height, o.depth);
           }
 
-          renderer = new THREE.CanvasRenderer();
+          renderer = new THREE.WebGLRenderer();
           renderer.setSize( window.innerWidth, window.innerHeight );
 
           document.body.appendChild( renderer.domElement );
