@@ -13,8 +13,8 @@
             x: offset.left, 
             y: -1*offset.top, 
             z: 5+50*zlevel, 
-            width: e.width(), 
-            height: e.height(), 
+            width: e.outerWidth(), 
+            height: e.outerHeight(), 
             depth: 5,
           });
           e.children().each(function() {
