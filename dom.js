@@ -15,7 +15,7 @@
             z: 10+(10*zlevel), 
             width: e.outerWidth(), 
             height: e.outerHeight(), 
-            depth: 10+(10*zlevel),
+            depth: 10,
           });
           e.children().each(function() {
             recursivelyAddElementToObjects($(this), zlevel + 1);
