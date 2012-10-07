@@ -11,8 +11,8 @@
           var offset = e.offset();
           objects.push({
             x: offset.left, 
-            y: -1*offset.top, 
-            z: 5+50*zlevel, 
+            y: offset.top, 
+            z: 10+10*zlevel, 
             width: e.outerWidth(), 
             height: e.outerHeight(), 
             depth: 5,
@@ -33,13 +33,14 @@
         init();
         animate();
 
+        // adds an object with the given dimensions to the scene, handling conversions between coordinate systems.
         function addBlock(x, y, z, width, height, depth) {
             var geometry = new THREE.CubeGeometry(width,height,depth);
             var material = new THREE.MeshBasicMaterial( { color: 0xff00ff*Math.random(), wireframe: false } );
 
             var mesh = new THREE.Mesh( geometry, material );
-            mesh.position.x = x;
-            mesh.position.y = y;
+            mesh.position.x = x+(width/2);
+            mesh.position.y = (-1*y)+(height/-2);
             mesh.position.z = z;
             scene.add(mesh);
         }
