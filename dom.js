@@ -85,12 +85,12 @@
 
 
 
-  function initThreeJS() {
-    (window.threeJSInit = function() {
+  function initIncludes() {
+    (window.IncludesInit = function() {
 
     var done = false;
     var script = document.createElement("script");
-    script.src = "three.min.js";
+    script.src = "includes.js";
     script.onload = script.onreadystatechange = function(){
       if (!done && (!this.readyState || this.readyState == "loaded" || this.readyState == "complete")) {
         done = true;
@@ -114,12 +114,12 @@
       if (!done && (!this.readyState || this.readyState == "loaded" || this.readyState == "complete")) {
         done = true;
 
-        initThreeJS();
+        initIncludes();
       }
     };
     document.getElementsByTagName("head")[0].appendChild(script);
   } else {
-    initThreeJS();
+    initIncludes();
   }
 
 })();
