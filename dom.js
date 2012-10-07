@@ -11,11 +11,11 @@
           var offset = e.offset();
           objects.push({
             x: offset.left, 
-            y: offset.top, 
-            z: zlevel * 20, 
+            y: -1*offset.top, 
+            z: 5+50*zlevel, 
             width: e.width(), 
             height: e.height(), 
-            depth: zlevel * 20,
+            depth: 5,
           });
           e.children().each(function() {
             recursivelyAddElementToObjects($(this), zlevel + 1);
@@ -33,6 +33,17 @@
         init();
         animate();
 
+        function addBlock(x, y, z, width, height, depth) {
+            var geometry = new THREE.CubeGeometry(width,height,depth);
+            var material = new THREE.MeshBasicMaterial( { color: 0xff00ff*Math.random(), wireframe: false } );
+
+            var mesh = new THREE.Mesh( geometry, material );
+            mesh.position.x = x;
+            mesh.position.y = y;
+            mesh.position.z = z;
+            scene.add(mesh);
+        }
+
         function init() {
           camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
           camera.position.z = 500;
@@ -43,18 +54,10 @@
           scene = new THREE.Scene();
 
           var objects = get3DPageObjects();
-
           for(var i in objects) {
             var o = objects[i];
-            
-            var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth);
-            var material = new THREE.MeshBasicMaterial( { color: 0xff00ff*Math.random(), wireframe: false } );
-
-            var mesh = new THREE.Mesh( geometry, material );
-            mesh.position.x = o.x;
-            mesh.position.y = o.z;
-            mesh.position.z = o.y;
-            scene.add(mesh);
+            console.log(o);
+            addBlock(o.x, o.y, o.z, o.width, o.height, o.depth);
           }
 
           renderer = new THREE.CanvasRenderer();
