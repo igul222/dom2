@@ -12,10 +12,10 @@
           objects.push({
             x: offset.left, 
             y: offset.top, 
-            z: 10+10*zlevel, 
+            z: 10+(10*zlevel), 
             width: e.outerWidth(), 
             height: e.outerHeight(), 
-            depth: 5,
+            depth: 10+(10*zlevel),
           });
           e.children().each(function() {
             recursivelyAddElementToObjects($(this), zlevel + 1);
