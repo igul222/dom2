@@ -35,7 +35,7 @@
           z: 10+(10*zlevel), 
           width: e.outerWidth(), 
           height: e.outerHeight(), 
-          depth: 10,
+          depth: 10
         });
         e.children().each(function() {
           recursivelyAddElementToObjects($(this), zlevel + 1);
@@ -50,16 +50,27 @@
       var camera, scene, renderer, controls;
       var clock = new THREE.Clock();
 
-      // adds an object with the given dimensions to the scene, handling conversions between coordinate systems.
-      function addBlock(x, y, z, width, height, depth) {
-          var geometry = new THREE.CubeGeometry(width,height,depth);
+      // adds a 3D DOM object to the scene, handling conversions between coordinate systems.
+      function addObject(o) {
+          var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth);
           var material = new THREE.MeshBasicMaterial( { color: 0xff00ff*Math.random(), wireframe: false } );
 
           var mesh = new THREE.Mesh( geometry, material );
-          mesh.position.x = x+(width/2);
-          mesh.position.y = (-1*y)+(height/-2);
-          mesh.position.z = z;
+          mesh.position.x = o.x+(o.width/2);
+          mesh.position.y = (-1*o.y)+(o.height/-2);
+          mesh.position.z = o.z;
           scene.add(mesh);
+      }
+
+      // returns a cropped copy of the given image in callback
+      function dataURLWithCroppedImage(srcImage, x, y, width, height, callback) {
+        var canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(srcImage, x, y, width, height, 0, 0, width, height);
+        
+        return canvas.toDataURL('image/png');
       }
 
       function threejs_init() {
@@ -72,16 +83,54 @@
         scene = new THREE.Scene();
 
         var objects = get3DPageObjects();
-        for(var i in objects) {
-          var o = objects[i];
-          addBlock(o.x, o.y, o.z, o.width, o.height, o.depth);
-        }
 
-        renderer = new THREE.WebGLRenderer();
-        renderer.setSize( window.innerWidth, window.innerHeight );
+        html2canvas( [ $('body')[0] ], {
+          onrendered: function( canvas ) {
+            var bodyImg = new Image();
+            bodyImg.onload = function() {
+              // add each 3D DOM object to the scene, handling conversions between coordinate systems.
+              function addObjectAtIndex(i) {
+                var o = objects[i];
 
-        document.body.appendChild( renderer.domElement );
-        $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#555');
+                var gray_material = new THREE.MeshBasicMaterial({color: 0x555555});
+                var cropped_url = dataURLWithCroppedImage(bodyImg, o.x, o.y, o.width, o.height);
+              
+                var croppedImage = new Image();
+                croppedImage.src = cropped_url;
+                croppedImage.tex = new THREE.Texture(croppedImage);
+                croppedImage.tex.needsUpdate = true;
+                croppedImage.onload = function() {
+                  this.tex.needsUpdate = true;
+                }
+
+                var image_material = new THREE.MeshBasicMaterial({color: 0xffffff, map: croppedImage.tex});
+
+                var materials = [gray_material,gray_material,gray_material,gray_material,image_material,gray_material]
+                var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth,1,1,1,materials);
+
+                var mesh = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial() );
+                mesh.position.x = o.x+(o.width/2);
+                mesh.position.y = (-1*o.y)+(o.height/-2);
+                mesh.position.z = o.z;
+                scene.add(mesh);
+              
+              }
+
+              for(var i in objects)
+                addObjectAtIndex(i);
+
+            }
+            bodyImg.src = canvas.toDataURL("image/png");
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize( window.innerWidth, window.innerHeight );
+
+            document.body.appendChild( renderer.domElement );
+            $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#333');
+            threejs_animate();
+
+          }
+        });
       }
 
       function threejs_animate() {
@@ -91,8 +140,13 @@
         renderer.render(scene, camera);
       }
 
+      // if body's background color is transparent, change it to white
+      var rgb = $('body').css('background-color');
+      rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
+      if(rgb[4] === '0')
+        $('body').css('background-color','#fff');
+
       threejs_init();
-      threejs_animate();
     }); // jquery dom ready
 
   }); // includes
