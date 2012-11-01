@@ -77,15 +77,15 @@
 
       function threejs_init() {
         camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
-		/**/controls = new THREE.FirstPersonControls(camera);
+		/*controls = new THREE.FirstPersonControls(camera);
         controls.movementSpeed = 1000;
         controls.lookSpeed = 0.1;/**/
 		
         camera.position.z = 300;
 
-        scene = new THREE.Scene();
+        scene = new Physijs.Scene;
 
-        //var objects = get3DPageObjects();
+        var objects = get3DPageObjects();
 
 		//LOLOL ADDDDEDEDDD STYFFFF__________________________==============================$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 		//document.addEventListener( 'mousemove', onMouseMove, false );
@@ -206,7 +206,6 @@
 		physics_stats.domElement.style.zIndex = 100;
 		document.getElementById( 'viewport' ).appendChild( physics_stats.domElement );*/
 
-		scene = new Physijs.Scene;
 		scene.setGravity(new THREE.Vector3( 0, 0, -30 ));
 		scene.addEventListener(
 			'update',
@@ -292,8 +291,8 @@
 	  function update() {
 	   /*camera.rotation.y -= ( - mouseX - camera.position.x ) * 0.00005;
 	   camera.rotation.x += ( mouseY - camera.position.y ) * 0.00005;*/
-	   /*camera.position.x += ( - mouseX - camera.position.x ) * 0.05;
-	   camera.position.y += ( mouseY - camera.position.y ) * 0.05;*/
+	   camera.position.x += ( - mouseX - camera.position.x ) * 0.05;
+	   camera.position.y += ( mouseY - camera.position.y ) * 0.05;
 	   //camera.lookAt( scene.position );
 	   mesh.rotation.y -= 0.005;
 		}
@@ -301,7 +300,7 @@
       function threejs_animate() {
         // note: three.js includes requestAnimationFrame shim
         requestAnimationFrame(threejs_animate);
-        controls.update(clock.getDelta());
+        //controls.update(clock.getDelta());
         renderer.render(scene, camera);
 		// update stats
 		//render_stats.update();

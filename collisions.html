@@ -146,6 +146,7 @@
 		scene.add( ground );
 		
 		var objects = get3DPageObjects();
+		console.log(objects);
 		html2canvas( [ $('body')[0] ], {
 			onrendered: function( canvas ) {
 				var bodyImg = new Image();
