@@ -24,7 +24,7 @@
     document.getElementsByTagName("head")[0].appendChild(script);
   }
 
-  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js'], function() {
+  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js', 'stats.js'], function() {
 		Physijs.scripts.worker = 'physijs_worker.js';
 		Physijs.scripts.ammo = 'ammo.js';
 		var integer = 0;
@@ -41,6 +41,7 @@
           height: e.outerHeight(), 
           depth: 10
         });
+				//if(integer<10)
         e.children().each(function() {
           recursivelyAddElementToObjects($(this), zlevel + 1);
         });
@@ -85,16 +86,16 @@
         controls.movementSpeed = 1000;
         controls.lookSpeed = 0.1;
         scene = new Physijs.Scene();
-				scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
+				scene.setGravity(new THREE.Vector3( 0, -30, -30 ));
 				scene.addEventListener(
 					'update',
 					function() {
 						scene.simulate( undefined, 1 );
-						//physics_stats.update();
+						physics_stats.update();
 					}
 				);
 				//Random Block
-				for(var i = 0; i < 130; i++)
+				for(var i = 0; i < 10; i++)
 				createBox();
 				
 				// Light
@@ -114,7 +115,7 @@
 				scene.add( light );
 				
 				// Ground
-				ground_material = Physijs.createMaterial(
+				/*ground_material = Physijs.createMaterial(
 					new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) }),
 					.8, // high friction
 					.3 // low restitution
@@ -128,9 +129,11 @@
 					0 // mass
 				);
 				ground.receiveShadow = true;
-				scene.add( ground );
+				scene.add( ground );*/
 				
 				// 3D DOM
+				//add dom elements to the parent mesh, then add the parent at the end.
+				var parent = new Physijs.BoxMesh( new THREE.CubeGeometry( 1, 1, 1 ), new THREE.MeshBasicMaterial({ color: 0x888888 }), 0 );
         var objects = get3DPageObjects();
 
         html2canvas( [ $('body')[0] ], {
@@ -157,25 +160,40 @@
                 var materials = [gray_material,gray_material,gray_material,gray_material,image_material,gray_material]
                 var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth,1,1,1,materials);
 
-                var mesh = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial() );
+                var mesh = new Physijs.BoxMesh( geometry, new THREE.MeshFaceMaterial() );
                 mesh.position.x = o.x+(o.width/2);
                 mesh.position.y = (-1*o.y)+(o.height/-2);
                 mesh.position.z = o.z;
-                scene.add(mesh);
+                parent.add(mesh);
               
               }
 
               for(var i in objects)
                 addObjectAtIndex(i);
+							scene.add(parent);
 
             }
             bodyImg.src = canvas.toDataURL("image/png");
 
-            renderer = new THREE.WebGLRenderer();
+            renderer = new THREE.WebGLRenderer({antialias: true});
             renderer.setSize( window.innerWidth, window.innerHeight );
 
             document.body.appendChild( renderer.domElement );
             $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#333');
+						
+						//stats box
+						render_stats = new Stats();
+						render_stats.domElement.style.position = 'absolute';
+						render_stats.domElement.style.top = '0px';
+						render_stats.domElement.style.zIndex = 100;
+						document.getElementsByTagName('body')[0].appendChild( render_stats.domElement );
+						
+						physics_stats = new Stats();
+						physics_stats.domElement.style.position = 'absolute';
+						physics_stats.domElement.style.top = '50px';
+						physics_stats.domElement.style.zIndex = 100;
+						document.getElementsByTagName('body')[0].appendChild( physics_stats.domElement );
+						
             threejs_animate();
 
           }
@@ -203,9 +221,9 @@
 				//box.collisions = 0;
 				
 				box.position.set(
-					Math.random() * 15 - 7.5,
-					25,
-					Math.random() * 15 - 7.5
+					Math.random() * 15 + 400,
+					Math.random() * 15 - 100,
+					Math.random() * 15 + 500
 				);
 				
 				box.rotation.set(
