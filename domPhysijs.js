@@ -41,7 +41,7 @@
           height: e.outerHeight(), 
           depth: 10
         });
-				//if(integer<10)
+				//if(integer<120) //a limiter for the number of dom elements
         e.children().each(function() {
           recursivelyAddElementToObjects($(this), zlevel + 1);
         });
@@ -80,13 +80,13 @@
 
       function threejs_init() {
         camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-        camera.position.z = 500;
+				camera.position.y = 500;
 
         controls = new THREE.FirstPersonControls(camera);
         controls.movementSpeed = 1000;
         controls.lookSpeed = 0.1;
         scene = new Physijs.Scene();
-				scene.setGravity(new THREE.Vector3( 0, -30, -30 ));
+				scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
 				scene.addEventListener(
 					'update',
 					function() {
@@ -157,13 +157,13 @@
 
                 var image_material = new THREE.MeshBasicMaterial({color: 0xffffff, map: croppedImage.tex});
 
-                var materials = [gray_material,gray_material,gray_material,gray_material,image_material,gray_material]
-                var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth,1,1,1,materials);
+                var materials = [gray_material,gray_material,image_material,gray_material,gray_material,gray_material]
+                var geometry = new THREE.CubeGeometry(o.width,o.depth,o.height,1,1,1,materials);
 
                 var mesh = new Physijs.BoxMesh( geometry, new THREE.MeshFaceMaterial() );
                 mesh.position.x = o.x+(o.width/2);
-                mesh.position.y = (-1*o.y)+(o.height/-2);
-                mesh.position.z = o.z;
+                mesh.position.y = o.z;
+                mesh.position.z = -((-1*o.y)+(o.height/-2)); //switching y and z axis
                 parent.add(mesh);
               
               }
@@ -221,9 +221,9 @@
 				//box.collisions = 0;
 				
 				box.position.set(
-					Math.random() * 15 + 400,
-					Math.random() * 15 - 100,
-					Math.random() * 15 + 500
+					Math.random() * 15 + 400, //x
+					Math.random() * 15 + 500, //y
+					Math.random() * 15 - 300 //z
 				);
 				
 				box.rotation.set(
