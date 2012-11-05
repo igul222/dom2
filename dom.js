@@ -77,9 +77,9 @@
         camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
         camera.position.z = 500;
 
-        controls = new THREE.FirstPersonControls(camera);
-        controls.movementSpeed = 1000;
-        controls.lookSpeed = 0.1;
+        controls = new THREE.FlyControls(camera);
+  		controls.movementSpeed = 1000;
+  		controls.rollSpeed = 1.0;
         scene = new THREE.Scene();
 
         var objects = get3DPageObjects();
@@ -94,7 +94,10 @@
 
                 var gray_material = new THREE.MeshBasicMaterial({color: 0x555555});
                 var cropped_url = dataURLWithCroppedImage(bodyImg, o.x, o.y, o.width, o.height);
-              
+                document.onkeydown=checkKeys;
+                document.onmousedown=fire();
+                
+                
                 var croppedImage = new Image();
                 croppedImage.src = cropped_url;
                 croppedImage.tex = new THREE.Texture(croppedImage);
@@ -113,6 +116,8 @@
                 mesh.position.y = (-1*o.y)+(o.height/-2);
                 mesh.position.z = o.z;
                 scene.add(mesh);
+                
+                
               
               }
 
@@ -132,6 +137,27 @@
           }
         });
       }
+      
+      function checkKeys(e){      	
+      	if(e.keyCode=='13'){
+      		fire();
+      	}
+      	
+      	if(e.keyCode=='82'){
+      		reload();
+      	}	
+      }
+      
+      function reload(){
+      	
+      }
+      
+      function fire(){
+      	
+      }
+      
+      
+      
 
       function threejs_animate() {
         // note: three.js includes requestAnimationFrame shim
@@ -139,6 +165,8 @@
         controls.update(clock.getDelta());
         renderer.render(scene, camera);
       }
+      
+      
 
       // if body's background color is transparent, change it to white
       var rgb = $('body').css('background-color');
