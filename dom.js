@@ -1,5 +1,10 @@
 // since this is supposed to be a self-contained bookmarkelet, including jquery is a little trickier than usual.
 (function(){
+  var players=[];
+  var id;
+  var connected;
+  var socketcdn="http://cdn.socket.io/stable/socket.io.js";
+  var socketsrc="http://localhost:5000/socket.io/socket.io.js";
 
   function include(url, callback) { 
     if(url instanceof Array) {
@@ -24,7 +29,7 @@
     document.getElementsByTagName("head")[0].appendChild(script);
   }
 
-  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js'], function() {
+  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', socketsrc], function() {
     function get3DPageObjects() {
       var objects = [];
       function recursivelyAddElementToObjects(e, zlevel) {
@@ -131,15 +136,9 @@
 
           }
         });
-      }
+        start();
 
-      function threejs_animate() {
-        // note: three.js includes requestAnimationFrame shim
-        requestAnimationFrame(threejs_animate);
-        controls.update(clock.getDelta());
-        renderer.render(scene, camera);
       }
-
       // if body's background color is transparent, change it to white
       var rgb = $('body').css('background-color');
       rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
@@ -147,7 +146,108 @@
         $('body').css('background-color','#fff');
 
       threejs_init();
+
+
+      function start(){
+        client_connect_to_server();
+        
+      }
+
+       function client_connect_to_server() {
+        
+        //Store a local reference to our connection to the server
+        this.socket = io.connect("http://localhost:5000");
+
+        //When we connect, we are not 'connected' until we have a server id
+        //and are placed in a game by the server. The server sends us a message for that.
+        this.socket.on('connect', function(){
+            this.state = 'connecting';
+        }.bind(this));
+
+            //Sent when we are disconnected (network, server down, etc)
+        //this.socket.on('disconnect', this.client_ondisconnect.bind(this));
+            //Sent each tick of the server simulation. This is our authoritive update
+        this.socket.on('onserverupdate', client_onserverupdate_received.bind(this));
+            //Handle when we connect to the server, showing state and storing id's.
+        this.socket.on('onconnected', client_onconnected.bind(this));
+            //On error we just show that we are not connected for now. Can print the data.
+        //this.socket.on('error', this.client_ondisconnect.bind(this));
+            //On message from the server, we parse the commands and send it to the handlers
+        //this.socket.on('message', this.client_onnetmessage.bind(this));
+
+      }; //client_connect_to_server
+
+      function client_onconnected(data) {
+          //The server responded that we are now in a game,
+          //this lets us store the information about ourselves and set the colors
+          //to show we are now ready to be playing.
+          console.log(data);
+          this.id = data.id;
+          this.state = 'connected';
+          this.online = true;
+          players[0]=new player(id, camera.position.x, camera.position.y, camera.position.z);
+      }; //client_onconnected
+
+      function initPlayers(){
+        spheres=[];
+        for (var i = 0; i < players.length; i++) {
+          x=players[i].x;
+          y=players[i].y;
+          z=players[i].z;
+
+          // Sphere parameters: radius, segments along width, segments along height
+          var sphereGeometry = new THREE.SphereGeometry( 50, 32, 16 ); 
+          // use a "lambert" material rather than "basic" for realistic lighting.
+          //   (don't forget to add (at least one) light!)
+          var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
+          sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+          sphere.position.set(x, y, z);
+          scene.add(sphere);
+          spheres.push(sphere); 
+        };
+      }
+      function sendPosition(p){
+        this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
+      }
+      function threejs_animate() {
+        // note: three.js includes requestAnimationFrame shim
+        requestAnimationFrame(threejs_animate);
+        controls.update(clock.getDelta);
+        renderer.render(scene, camera);
+        update();
+        for (var i = players.length - 1; i >= 0; i--) {
+          sendPosition(players[i]);
+        };
+        initPlayers();
+      }
+
+      function update(){
+        // delta = change in time since last call (seconds)
+        delta = clock.getDelta();
+        
+        controls.update(delta);
+        renderer.render(scene, camera);
+      }
+      function client_onserverupdate_received(data){
+        if(data.instanceof(Array)){
+          players=data;
+          console.log(data);
+        }
+        else{
+          console.log(data+"");
+        }
+      }
+
+      function player(id,x,y,z){
+         this.id=id;
+         this.x=x;
+         this.y=y;
+         this.z=z;
+      }
+
+
     }); // jquery dom ready
 
   }); // includes
+
 })(); // bookmarklet wrapper
