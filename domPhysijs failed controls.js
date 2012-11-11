@@ -3,6 +3,7 @@
 //http://chandlerprall.github.com/Physijs/ the collisions.html example page
 
 // since this is supposed to be a self-contained bookmarkelet, including jquery is a little trickier than usual.
+var player;
 (function(){
 
 	var MOVESPEED = 500,
@@ -61,7 +62,7 @@
     }
 
     $(function() {
-      var camera, scene, renderer, controls, input, player;
+      var camera, scene, renderer, controls, input;
       var clock = new THREE.Clock();
 
       // adds a 3D DOM object to the scene, handling conversions between coordinate systems.
@@ -118,18 +119,34 @@
 				var materials = [player_material2,player_material,player_material,player_material,player_material,player_material]
 				var player_physijs_material = Physijs.createMaterial(
 					player_material,
-					.6, // medium friction
+					.2, // medium friction
 					.3 // low restitution
 				);
-				player = new Physijs.BoxMesh(
-					new THREE.CubeGeometry(10, 10, 10,1,1,1,materials),
-					player_physijs_material
+				player = new Physijs.BoxMesh (
+					new THREE.CubeGeometry(10, 10, 10),
+					player_physijs_material, 5
 				);
 				player.position.set(400, 500, 300);				
 				player.castShadow = true;
 				//box.addEventListener( 'collision', handleCollision );
 				//box.addEventListener( 'ready', spawnBox );
+				player.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation ) {
+					console.log(other_object, relative_velocity, relative_rotation);
+						// `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation`
+				});
 				scene.add( player );
+				
+				// Input commands
+				player.FORWARDS = "forwards";
+				player.BACKWARDS = "backwards"
+				player.LEFT = "left";
+				player.RIGHT = "right";
+				player.FIRE = "fire";
+				player.SUICIDE = "suicide";
+				player.WALK = "walk";
+				player.DAMAGE = "damage";
+				player.MAXSPEED = 50;
+				player.ROTATIONSPEED = 5;
 				
 				// Light
 				light = new THREE.DirectionalLight( 0xFFFFFF );
@@ -283,8 +300,8 @@
 				scene.simulate();
       }
 
-			var  forwards_force_vector = new THREE.Vector3(10, 0, 0);
-			var backwards_force_vector = new THREE.Vector3(-10, 0, 0);
+			var  forwards_force_vector = new THREE.Vector3(5000, 0, 0);
+			var backwards_force_vector = new THREE.Vector3(-5000, 0, 0);
 			function playerControls() {
 				var rotation_matrix, player_force_vector;
 				
@@ -300,25 +317,38 @@
 					player.setSteering( input.steering, 0 );
 					player.setSteering( input.steering, 1 );*/
 
-					if ( input.power === true ) {
+					var pV = player.getLinearVelocity();
+					
+					if ( input.power === 1 ) {
 						console.log(player.position);
 						console.log("PLAYER FORWARDS");
-						player_force_vector = rotation_matrix.multiplyVector3(forwards_force_vector);
-						player.applyCentralForce(player_force_vector);
-					} else if ( input.power === false ) {
+						//player_force_vector = rotation_matrix.multiplyVector3(forwards_force_vector);
+						player_force_vector = forwards_force_vector;
+					} else if ( input.power === -1 ) {
 						console.log("PLAYER BACKWARDS");
-						player_force_vector = rotation_matrix.multiplyVector3(backwards_force_vector);
-						player.applyCentralForce(player_force_vector);
+						//player_force_vector = rotation_matrix.multiplyVector3(backwards_force_vector);
+						player_force_vector = backwards_force_vector;
 					} else {
-					// no move
+						player_force_vector = pV.multiplyScalar(-220);//new THREE.Vector3(0, 0, 0);
+						player_force_vector.y = 0;
+						//player.setLinearVelocity(0);
 					}
+					
+					/*if (Math.sqrt(pV.x*pV.x + pV.z * pV.z) > player.MAXSPEED) {
+						player_force_vector.divideScalar(100);
+						console.log("HEYYYYYYYY");
+						}*/
+					player_force_vector.setY(0);
+					//console.log(player_force_vector, player.getLinearVelocity());
+					player.applyCentralForce(player_force_vector);
 					
 					if (input.jump === true ) {
 						console.log("PLAYER JUMP");
-						player.applyCentralImpulse(new THREE.Vector3(0, 1e3, 0))
+						player.applyCentralForce(new THREE.Vector3(0, 5e3, 0))
 					} else {
 						//nojump
 					}
+					player.__dirtyPosition = true;
 				}
 			}
 			
@@ -336,7 +366,7 @@
 						break;
 
 					case 38: // forward
-						input.power = true;
+						input.power = 1;
 						break;
 
 					case 39: // right
@@ -344,7 +374,7 @@
 						break;
 
 					case 40: // back
-						input.power = false;
+						input.power = -1;
 						break;
 						
 					case 32: //space
@@ -352,26 +382,19 @@
 						break;
 				}
 			});
+			
 			document.addEventListener('keyup', function( ev ) {
 				switch ( ev.keyCode ) {
-					case 37: // left
-						input.direction = null;
+					case 37: case 39: // left
+						input.direction = 0;
 						break;
 
-					case 38: // forward
-						input.power = null;
-						break;
-
-					case 39: // right
-						input.direction = null;
-						break;
-
-					case 40: // back
-						input.power = null;
+					case 38: case 40: // forward
+						input.power = 0;
 						break;
 						
 					case 32: //space
-						input.jump = null;
+						input.jump = false;
 						break;
 				}
 			});
@@ -406,8 +429,7 @@
 			});
 				
       threejs_init();
-			
-			
+		
     }); // jquery dom ready
 		
   }); // includes
