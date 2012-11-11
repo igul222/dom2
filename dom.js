@@ -182,10 +182,10 @@
           //this lets us store the information about ourselves and set the colors
           //to show we are now ready to be playing.
           console.log(data);
-          this.id = data.id;
+          this.id = data['id'];
           this.state = 'connected';
           this.online = true;
-          players[0]=new player(id, camera.position.x, camera.position.y, camera.position.z);
+          players[players.length]=new player(this.id, camera.position.x, camera.position.y, camera.position.z);
       }; //client_onconnected
 
       function initPlayers(){
@@ -202,31 +202,31 @@
           var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
           sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
           sphere.position.set(x, y, z);
-          scene.add(sphere);
           spheres.push(sphere); 
+          scene.add(spheres);
         };
       }
       function sendPosition(p){
-        this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
+        //this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
+        socket.emit('location',p) ;
       }
       function threejs_animate() {
         // note: three.js includes requestAnimationFrame shim
+        update();
         requestAnimationFrame(threejs_animate);
         controls.update(clock.getDelta);
         renderer.render(scene, camera);
-        update();
-        for (var i = players.length - 1; i >= 0; i--) {
-          sendPosition(players[i]);
-        };
-        initPlayers();
       }
 
       function update(){
         // delta = change in time since last call (seconds)
         delta = clock.getDelta();
-        
-        controls.update(delta);
-        renderer.render(scene, camera);
+        if(delta>=1){
+          for (var i = players.length - 1; i >= 0; i--) {
+            sendPosition(players[i]);
+          };
+          initPlayers();
+        }
       }
       function client_onserverupdate_received(data){
         if(data.instanceof(Array)){
