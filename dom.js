@@ -1,6 +1,18 @@
+//code snippets borrowed from 
+//https://github.com/IceCreamYou/Nemesis/blob/angelhack/main.js
+//http://chandlerprall.github.com/Physijs/ the collisions.html example page
+
 // since this is supposed to be a self-contained bookmarkelet, including jquery is a little trickier than usual.
+var player, camera;
 (function(){
-	
+
+	var players = [];
+  var id;
+  var connected;
+  var socketcdn="http://cdn.socket.io/stable/socket.io.js";
+  var socketsrc="http://localhost:5000/socket.io/socket.io.js";
+	//var prevPosition;
+
   function include(url, callback) { 
     if(url instanceof Array) {
       if(url.length == 0) {
@@ -24,10 +36,14 @@
     document.getElementsByTagName("head")[0].appendChild(script);
   }
 
-  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js', 'stats.js'], function() {
+  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js', 'stats.js', socketsrc], function() {
+		Physijs.scripts.worker = 'physijs_worker.js';
+		Physijs.scripts.ammo = 'ammo.js';
+		var integer = 0;
     function get3DPageObjects() {
       var objects = [];
       function recursivelyAddElementToObjects(e, zlevel) {
+				console.log(integer++);
         var offset = e.offset();
         objects.push({
           x: offset.left, 
@@ -37,6 +53,7 @@
           height: e.outerHeight(), 
           depth: 10
         });
+				//if(integer<120) //a limiter for the number of dom elements
         e.children().each(function() {
           recursivelyAddElementToObjects($(this), zlevel + 1);
         });
@@ -47,10 +64,18 @@
     }
 
     $(function() {
-		Physijs.scripts.worker = 'physijs_worker.js';
-		Physijs.scripts.ammo = 'ammo.js';
-      var camera, scene, renderer, controls;
+      var cameraVector, scene, renderer, controls, input;
       var clock = new THREE.Clock();
+			
+			var MOVESPEED = 5000,
+					LOOKSPEED = 0.1,
+					WIDTH = window.innerWidth,
+					HEIGHT = window.innerHeight,
+					CAMERADISTANCE = 100,
+					ROTATESPEED = Math.PI / 32,
+					YAXIS = new THREE.Vector3(0, 1, 0);
+					
+			cameraVector = new THREE.Vector3(1, 0, 0);
 
       // adds a 3D DOM object to the scene, handling conversions between coordinate systems.
       function addObject(o) {
@@ -75,74 +100,104 @@
         return canvas.toDataURL('image/png');
       }
 
-      function threejs_init() {
-        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
-		/*controls = new THREE.FirstPersonControls(camera);
-        controls.movementSpeed = 1000;
-        controls.lookSpeed = 0.1;/**/
-		
-        camera.position.z = 300;
-
-        scene = new Physijs.Scene;
-
+      function threejs_init() {	
+        scene = new Physijs.Scene();
+				scene.setGravity(new THREE.Vector3( 0, -300, 0 ));
+				scene.addEventListener(
+					'update',
+					function() {
+						playerControls();					
+						scene.simulate( undefined, 1 );
+						physics_stats.update();
+					}
+				);
+				
+				//camera
+        camera = new THREE.PerspectiveCamera( 75, WIDTH / HEIGHT, 1, 10000 );
+				camera.position.y = 500;
+        /*controls = new THREE.FirstPersonControls(camera);
+        controls.movementSpeed = MOVESPEED;
+        controls.lookSpeed = LOOKSPEED;
+				controls.noFly = true;*/
+				scene.add(camera);
+				
+				//Random Block
+				for(var i = 0; i < 10; i++)
+				createBox();
+				
+				//Player Block
+				var player_material  = new THREE.MeshBasicMaterial({color: 0xcdecde});
+				var player_material2 = new THREE.MeshBasicMaterial({color: 0x555555});
+				var materials = [player_material2,player_material,player_material,player_material,player_material,player_material]
+				var player_physijs_material = Physijs.createMaterial(
+					player_material,
+					.2, // medium friction
+					.3 // low restitution
+				);
+				player = new Physijs.BoxMesh (
+					new THREE.CubeGeometry(10, 10, 10),
+					player_physijs_material, 5
+				);
+				player.position.set(400, 500, 300);				
+				player.castShadow = true;
+				//box.addEventListener( 'collision', handleCollision );
+				//box.addEventListener( 'ready', spawnBox );
+				player.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation ) {
+					console.log(other_object, relative_velocity, relative_rotation);
+						// `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation`
+				});
+				scene.add( player );
+				
+				// Input commands
+				player.FORWARDS = "forwards";
+				player.BACKWARDS = "backwards"
+				player.LEFT = "left";
+				player.RIGHT = "right";
+				player.FIRE = "fire";
+				player.SUICIDE = "suicide";
+				player.WALK = "walk";
+				player.DAMAGE = "damage";
+				player.MAXSPEED = 50;
+				player.ROTATIONSPEED = 5;
+				
+				// Light
+				light = new THREE.DirectionalLight( 0xFFFFFF );
+				light.position.set( 20, 40, -15 );
+				light.target.position.copy( scene.position );
+				light.castShadow = true;
+				light.shadowCameraLeft = -60;
+				light.shadowCameraTop = -60;
+				light.shadowCameraRight = 60;
+				light.shadowCameraBottom = 60;
+				light.shadowCameraNear = 20;
+				light.shadowCameraFar = 200;
+				light.shadowBias = -.0001
+				light.shadowMapWidth = light.shadowMapHeight = 2048;
+				light.shadowDarkness = .7;
+				scene.add( light );
+				
+				// Ground
+				/*ground_material = Physijs.createMaterial(
+					new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) }),
+					.8, // high friction
+					.3 // low restitution
+				);
+				ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
+				ground_material.map.repeat.set( 3, 3 );
+				
+				ground = new Physijs.BoxMesh(
+					new THREE.CubeGeometry(100, 1, 100),
+					ground_material,
+					0 // mass
+				);
+				ground.receiveShadow = true;
+				scene.add( ground );*/
+				
+				// 3D DOM
+				//add dom elements to the parent mesh, then add the parent at the end.
+				var parent = new Physijs.BoxMesh( new THREE.CubeGeometry( 1, 1, 1 ), new THREE.MeshBasicMaterial({ color: 0x888888 }), 0 );
         var objects = get3DPageObjects();
 
-		//LOLOL ADDDDEDEDDD STYFFFF__________________________==============================$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-		//document.addEventListener( 'mousemove', onMouseMove, false );
-		
-		// create a sphere shape        
-		geometry = new THREE.SphereGeometry( 16, 16, 16 );
-
-		// give a shape red color
-		material = new THREE.MeshLambertMaterial({color: 0xFF1111});    
-
-		// create an object
-		mesh = new THREE.Mesh( geometry, material );
-
-		mesh.position.x = 100;
-		mesh.position.y = -100;
-		mesh.position.z = 100;
-
-		// add it to the scene
-		scene.add( mesh );
-		
-		// Light
-		light = new THREE.DirectionalLight( 0xFFFFFF );
-		light.position.set( 20, 40, -15 );
-		light.target.position.copy( scene.position );
-		light.castShadow = true;
-		light.shadowCameraLeft = -60;
-		light.shadowCameraTop = -60;
-		light.shadowCameraRight = 60;
-		light.shadowCameraBottom = 60;
-		light.shadowCameraNear = 20;
-		light.shadowCameraFar = 200;
-		light.shadowBias = -.0001
-		light.shadowMapWidth = light.shadowMapHeight = 2048;
-		light.shadowDarkness = .7;
-		scene.add( light );
-		
-		//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-		
-		// Ground
-		ground_material = Physijs.createMaterial(
-			new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) }),
-			.8, // high friction
-			.3 // low restitution
-		);
-		ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
-		ground_material.map.repeat.set( 3, 3 );
-		
-		ground = new Physijs.BoxMesh(
-			new THREE.CubeGeometry(100, 100, 1),
-			ground_material,
-			0 // mass
-		);
-		ground.receiveShadow = true;
-		scene.add( ground );
-		
-		spawnBox();
-		
         html2canvas( [ $('body')[0] ], {
           onrendered: function( canvas ) {
             var bodyImg = new Image();
@@ -164,90 +219,54 @@
 
                 var image_material = new THREE.MeshBasicMaterial({color: 0xffffff, map: croppedImage.tex});
 
-                var materials = [gray_material,gray_material,gray_material,gray_material,image_material,gray_material]
-                var geometry = new THREE.CubeGeometry(o.width,o.height,o.depth,1,1,1,materials);
+                var materials = [gray_material,gray_material,image_material,gray_material,gray_material,gray_material]
+                var geometry = new THREE.CubeGeometry(o.width,o.depth,o.height,1,1,1,materials);
 
-                var mesh = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial() );
+                var mesh = new Physijs.BoxMesh( geometry, new THREE.MeshFaceMaterial() );
                 mesh.position.x = o.x+(o.width/2);
-                mesh.position.y = (-1*o.y)+(o.height/-2);
-                mesh.position.z = o.z;
-                scene.add(mesh);
+                mesh.position.y = o.z;
+                mesh.position.z = -((-1*o.y)+(o.height/-2)); //switching y and z axis
+                parent.add(mesh);
               
               }
 
               for(var i in objects)
                 addObjectAtIndex(i);
+							scene.add(parent);
 
             }
             bodyImg.src = canvas.toDataURL("image/png");
 
-            renderer = new THREE.WebGLRenderer();
-            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer = new THREE.WebGLRenderer({antialias: true});
+            renderer.setSize( WIDTH, HEIGHT );
 
             document.body.appendChild( renderer.domElement );
             $(renderer.domElement).css('position','fixed').css('left','0').css('top','0').css('background-color','#333');
-            //threejs_animate();
+						
+						//stats box
+						render_stats = new Stats();
+						render_stats.domElement.style.position = 'absolute';
+						render_stats.domElement.style.top = '0px';
+						render_stats.domElement.style.zIndex = 100;
+						document.getElementsByTagName('body')[0].appendChild( render_stats.domElement );
+						
+						physics_stats = new Stats();
+						physics_stats.domElement.style.position = 'absolute';
+						physics_stats.domElement.style.top = '50px';
+						physics_stats.domElement.style.zIndex = 100;
+						document.getElementsByTagName('body')[0].appendChild( physics_stats.domElement );
+						
+            threejs_animate();
 
           }
         });
-		//setInterval(update,1000/30); 
-		
-		//physijs init stuff
-		/*$('body').append('<div id="viewport"></div>');
-		render_stats = new Stats();
-		render_stats.domElement.style.position = 'absolute';
-		render_stats.domElement.style.top = '0px';
-		render_stats.domElement.style.zIndex = 100;
-		document.getElementById( 'viewport' ).appendChild( render_stats.domElement );
-		
-		physics_stats = new Stats();
-		physics_stats.domElement.style.position = 'absolute';
-		physics_stats.domElement.style.top = '50px';
-		physics_stats.domElement.style.zIndex = 100;
-		document.getElementById( 'viewport' ).appendChild( physics_stats.domElement );*/
-
-		scene.setGravity(new THREE.Vector3( 0, 0, -30 ));
-		scene.addEventListener(
-			'update',
-			function() {
-				scene.simulate( undefined, 1 );
-				physics_stats.update();
-			}
-		);
+				start(); //initialize multiplayer functionality
       }
-	  
-	  spawnBox = (function() {
-		var box_geometry = new THREE.CubeGeometry( 4, 4, 4 ),
-			handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
-				switch ( ++this.collisions ) {
-					
-					case 1:
-						this.material.color.setHex(0xcc8855);
-						break;
-					
-					case 2:
-						this.material.color.setHex(0xbb9955);
-						break;
-					
-					case 3:
-						this.material.color.setHex(0xaaaa55);
-						break;
-					
-					case 4:
-						this.material.color.setHex(0x99bb55);
-						break;
-					
-					case 5:
-						this.material.color.setHex(0x88cc55);
-						break;
-					
-					case 6:
-						this.material.color.setHex(0x77dd55);
-						break;
-				}
-			},
+
+			//Create a small wooden box near the position (400, 500, 300)
 			createBox = function() {
 				var box, material;
+				var box_geometry = new THREE.CubeGeometry( 4, 4, 4 ),
 				
 				material = Physijs.createMaterial(
 					new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/plywood.jpg' ) }),
@@ -263,12 +282,12 @@
 					box_geometry,
 					material
 				);
-				box.collisions = 0;
+				//box.collisions = 0;
 				
 				box.position.set(
-					Math.random() * 15 - 7.5,
-					25,
-					Math.random() * 15 - 7.5
+					Math.random() * 15 + 400, //x
+					Math.random() * 15 + 500, //y
+					Math.random() * 15 + 300 //z
 				);
 				
 				box.rotation.set(
@@ -278,49 +297,246 @@
 				);
 				
 				box.castShadow = true;
-				box.addEventListener( 'collision', handleCollision );
-				box.addEventListener( 'ready', spawnBox );
+				//box.addEventListener( 'collision', handleCollision );
+				//box.addEventListener( 'ready', spawnBox );
 				scene.add( box );
 			};
-		
-		return function() {
-			setTimeout( createBox, 1000 );
-		};
-	})();
-	  
-	  function update() {
-	   /*camera.rotation.y -= ( - mouseX - camera.position.x ) * 0.00005;
-	   camera.rotation.x += ( mouseY - camera.position.y ) * 0.00005;*/
-	   camera.position.x += ( - mouseX - camera.position.x ) * 0.05;
-	   camera.position.y += ( mouseY - camera.position.y ) * 0.05;
-	   //camera.lookAt( scene.position );
-	   mesh.rotation.y -= 0.005;
-		}
+			
+			var  forwards_force_vector = new THREE.Vector3(5000, 0, 0);
+			var backwards_force_vector = new THREE.Vector3(-5000, 0, 0);
+			var player_force_vector = new THREE.Vector3(0,0,0);
+			function playerControls() {
+				var rotation_matrix, player_force_vector;
+				
+				rotation_matrix = new THREE.Matrix4();
+				rotation_matrix.extractRotation(player.matrix);
+				
+				if ( input && player ) {
+					//player turning
+					var angle;
+					if ( input.direction !== 0 ) {
+						cameraAngleChange = input.direction * ROTATESPEED;
+						console.log("cameraVector", cameraVector, input.direction, cameraAngleChange);
+						var matrix = new THREE.Matrix4().makeRotationAxis( YAXIS, cameraAngleChange );
+						matrix.multiplyVector3( cameraVector );
+					}
+					
+					player_force_vector = cameraVector.clone();
 
-      function threejs_animate() {
-        // note: three.js includes requestAnimationFrame shim
-        requestAnimationFrame(threejs_animate);
-        //controls.update(clock.getDelta());
-        renderer.render(scene, camera);
-		// update stats
-		//render_stats.update();
-      }
-	  
-	  function onMouseMove( event ) {
-		  mouseX = event.clientX - halfWidth;
-		  mouseY = event.clientY - halfHeight;
-		}
+					//player movement
+					var pV = player.getLinearVelocity();
+					if ( input.power !== 0 ) {
+						player_force_vector.multiplyScalar(input.power * MOVESPEED);
+					} else {
+						player_force_vector = player.getLinearVelocity().multiplyScalar(-220);//new THREE.Vector3(0, 0, 0);
+						//player.setLinearVelocity(0);
+					}
+					player_force_vector.setY(0);
+					player.applyCentralForce(player_force_vector);
+					
+					/*if (Math.sqrt(pV.x*pV.x + pV.z*pV.z) > player.MAXSPEED) {
+						player_force_vector.divideScalar(100);
+						console.log("HEYYYYYYYY");
+					}*/
+					
+					if (input.jump === true ) {
+						console.log("PLAYER JUMP");
+						player.applyCentralForce(new THREE.Vector3(0, 5e3, 0))
+					} else {
+						//nojump
+					}
+					player.__dirtyPosition = true;
+					
+					if ( player ) { //camera follow player
+					//camera.position.copy( player.position ).addSelf( new THREE.Vector3( 40, 25, 40 ) );
+					camera.position.copy( player.position ).addSelf(cameraVector.clone().multiplyScalar(-40).setY(25));
+					camera.lookAt( player.position );
+				}
+				}
+			}
+			
+			//controls
+			input = {
+				power: 0,
+				direction: 0,
+				jump: null,
+				steering: 0
+			};
+			document.addEventListener('keydown', function( ev ) {
+				switch ( ev.keyCode ) {
+					case 37: // left
+						input.direction = 1;
+						break;
 
+					case 38: // forward
+						input.power = 1;
+						break;
+
+					case 39: // right
+						input.direction = -1;
+						break;
+
+					case 40: // back
+						input.power = -1;
+						break;
+						
+					case 32: //space
+						input.jump = true;
+						break;
+				}
+			});
+			
+			document.addEventListener('keyup', function( ev ) {
+				switch ( ev.keyCode ) {
+					case 37: case 39: // left //right
+						input.direction = 0;
+						break;
+
+					case 38: case 40: // forward
+						input.power = 0;
+						break;
+						
+					case 32: //space
+						input.jump = false;
+						break;
+				}
+			});
+			
       // if body's background color is transparent, change it to white
       var rgb = $('body').css('background-color');
       rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)$/);
       if(rgb[4] === '0')
         $('body').css('background-color','#fff');
-		
-		var halfWidth = window.innerWidth/2, halfHeight = window.innerHeight/2;
-
+			
+			// Handle window resizing
+			$(window).resize(function() {
+				WIDTH = window.innerWidth;
+				HEIGHT = window.innerHeight;
+				ASPECT = WIDTH / HEIGHT;
+				if (camera) {
+					camera.aspect = ASPECT;
+					camera.updateProjectionMatrix();
+				}
+				if (renderer) {
+					renderer.setSize(WIDTH, HEIGHT);
+				}
+				//$('#intro, #hurt').css({width: WIDTH, height: HEIGHT,});
+			});
+			
+			// Stop moving around when the window is unfocused
+			/*$(window).focus(function() {
+				if (controls) controls.freeze = false;
+			});
+			$(window).blur(function() {
+				if (controls) controls.freeze = true;
+			});*/
+				
       threejs_init();
-    }); // jquery dom ready
+			
+			function threejs_animate() {
+        // note: three.js includes requestAnimationFrame shim
+        requestAnimationFrame(threejs_animate);
+        //controls.update(clock.getDelta());
+        renderer.render(scene, camera);
+				scene.simulate();
+				
+				//update player position
+				players[0].x = player.position.x;
+				players[0].y = player.position.y;
+				players[0].z = player.position.z;
+				for (var i = players.length - 1; i >= 0; i--) {
+          sendPosition(players[i]);
+        };
+        initPlayers();
+      }
+			
+			//Multiplayer functionality ----------------------------------------------------------
+			function start(){
+        client_connect_to_server();
+        
+      }
 
+       function client_connect_to_server() {
+        
+        //Store a local reference to our connection to the server
+        this.socket = io.connect("http://localhost:5000");
+
+        //When we connect, we are not 'connected' until we have a server id
+        //and are placed in a game by the server. The server sends us a message for that.
+        this.socket.on('connect', function(){
+            this.state = 'connecting';
+        }.bind(this));
+
+            //Sent when we are disconnected (network, server down, etc)
+        //this.socket.on('disconnect', this.client_ondisconnect.bind(this));
+            //Sent each tick of the server simulation. This is our authoritive update
+        this.socket.on('onserverupdate', client_onserverupdate_received.bind(this));
+            //Handle when we connect to the server, showing state and storing id's.
+        this.socket.on('onconnected', client_onconnected.bind(this));
+            //On error we just show that we are not connected for now. Can print the data.
+        //this.socket.on('error', this.client_ondisconnect.bind(this));
+            //On message from the server, we parse the commands and send it to the handlers
+        //this.socket.on('message', this.client_onnetmessage.bind(this));
+
+      }; //client_connect_to_server
+
+      function client_onconnected(data) {
+          //The server responded that we are now in a game,
+          //this lets us store the information about ourselves and set the colors
+          //to show we are now ready to be playing.
+          console.log(data.id);
+          this.id = data.id;
+          this.state = 'connected';
+          this.online = true;
+          players[0] = new networkPlayer(this.id, player.position.x, player.position.y, player.position.z);
+      }; //client_onconnected
+			
+			var spheres;
+      function initPlayers(){
+				if (spheres !== undefined)
+					if (spheres.length > 0)
+						for (var i = 0; i < spheres.length; i++)
+							scene.remove(spheres[i]);
+							
+        spheres=[];
+        for (var i = 0; i < players.length; i++) {
+          x=players[i].x;
+          y=players[i].y;
+          z=players[i].z;
+
+          // Sphere parameters: radius, segments along width, segments along height
+          var sphereGeometry = new THREE.SphereGeometry( 10, 32, 16 ); 
+          // use a "lambert" material rather than "basic" for realistic lighting.
+          //   (don't forget to add (at least one) light!)
+          var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
+          sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+          sphere.position.set(x, y, z);
+          scene.add(sphere);
+          spheres.push(sphere); 
+        };
+      }
+      function sendPosition(p){
+        this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
+      }
+			
+      function client_onserverupdate_received(data){
+        if(data.instanceof(Array)){
+          players=data;
+          console.log(data);
+        }
+        else{
+          console.log(data+"");
+        }
+      };
+			
+      function networkPlayer(id,x,y,z){
+         this.id=id;
+         this.x=x;
+         this.y=y;
+         this.z=z;
+      };
+		
+    }); // jquery dom ready
+		
   }); // includes
 })(); // bookmarklet wrapper
