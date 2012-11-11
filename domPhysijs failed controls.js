@@ -4,12 +4,8 @@
 
 // since this is supposed to be a self-contained bookmarkelet, including jquery is a little trickier than usual.
 var player;
+var thing;
 (function(){
-
-	var MOVESPEED = 500,
-			LOOKSPEED = 0.1,
-			WIDTH = window.innerWidth,
-			HEIGHT = window.innerHeight;
 
   function include(url, callback) { 
     if(url instanceof Array) {
@@ -62,8 +58,19 @@ var player;
     }
 
     $(function() {
-      var camera, scene, renderer, controls, input;
+      var camera, cameraVector, scene, renderer, controls, input;
       var clock = new THREE.Clock();
+			thing = new THREE.Vector3(0,0,1);
+			
+			var MOVESPEED = 5000,
+					LOOKSPEED = 0.1,
+					WIDTH = window.innerWidth,
+					HEIGHT = window.innerHeight,
+					CAMERADISTANCE = 100,
+					ROTATESPEED = Math.PI / 32,
+					YAXIS = new THREE.Vector3(0, 1, 0);
+					
+			cameraVector = new THREE.Vector3(1, 0, 0);
 
       // adds a 3D DOM object to the scene, handling conversions between coordinate systems.
       function addObject(o) {
@@ -292,16 +299,13 @@ var player;
         // note: three.js includes requestAnimationFrame shim
         requestAnimationFrame(threejs_animate);
         //controls.update(clock.getDelta());
-				if ( player ) { //camera follow player
-					camera.position.copy( player.position ).addSelf( new THREE.Vector3( 40, 25, 40 ) );
-					camera.lookAt( player.position );
-				}
         renderer.render(scene, camera);
 				scene.simulate();
       }
 
 			var  forwards_force_vector = new THREE.Vector3(5000, 0, 0);
 			var backwards_force_vector = new THREE.Vector3(-5000, 0, 0);
+			var player_force_vector = new THREE.Vector3(0,0,0);
 			function playerControls() {
 				var rotation_matrix, player_force_vector;
 				
@@ -309,38 +313,32 @@ var player;
 				rotation_matrix.extractRotation(player.matrix);
 				
 				if ( input && player ) {
-					/*if ( input.direction !== null ) {
-						input.steering += input.direction / 50;
-						if ( input.steering < -.6 ) input.steering = -.6;
-						if ( input.steering > .6 ) input.steering = .6;
+					//player turning
+					var angle;
+					if ( input.direction !== 0 ) {
+						cameraAngleChange = input.direction * ROTATESPEED;
+						console.log("cameraVector", cameraVector, input.direction, cameraAngleChange);
+						var matrix = new THREE.Matrix4().makeRotationAxis( YAXIS, cameraAngleChange );
+						matrix.multiplyVector3( cameraVector );
 					}
-					player.setSteering( input.steering, 0 );
-					player.setSteering( input.steering, 1 );*/
-
-					var pV = player.getLinearVelocity();
 					
-					if ( input.power === 1 ) {
-						console.log(player.position);
-						console.log("PLAYER FORWARDS");
-						//player_force_vector = rotation_matrix.multiplyVector3(forwards_force_vector);
-						player_force_vector = forwards_force_vector;
-					} else if ( input.power === -1 ) {
-						console.log("PLAYER BACKWARDS");
-						//player_force_vector = rotation_matrix.multiplyVector3(backwards_force_vector);
-						player_force_vector = backwards_force_vector;
+					player_force_vector = cameraVector.clone();
+
+					//player movement
+					var pV = player.getLinearVelocity();
+					if ( input.power !== 0 ) {
+						player_force_vector.multiplyScalar(input.power * MOVESPEED);
 					} else {
-						player_force_vector = pV.multiplyScalar(-220);//new THREE.Vector3(0, 0, 0);
-						player_force_vector.y = 0;
+						player_force_vector = player.getLinearVelocity().multiplyScalar(-220);//new THREE.Vector3(0, 0, 0);
 						//player.setLinearVelocity(0);
 					}
+					player_force_vector.setY(0);
+					player.applyCentralForce(player_force_vector);
 					
-					/*if (Math.sqrt(pV.x*pV.x + pV.z * pV.z) > player.MAXSPEED) {
+					/*if (Math.sqrt(pV.x*pV.x + pV.z*pV.z) > player.MAXSPEED) {
 						player_force_vector.divideScalar(100);
 						console.log("HEYYYYYYYY");
-						}*/
-					player_force_vector.setY(0);
-					//console.log(player_force_vector, player.getLinearVelocity());
-					player.applyCentralForce(player_force_vector);
+					}*/
 					
 					if (input.jump === true ) {
 						console.log("PLAYER JUMP");
@@ -349,6 +347,12 @@ var player;
 						//nojump
 					}
 					player.__dirtyPosition = true;
+					
+					if ( player ) { //camera follow player
+					//camera.position.copy( player.position ).addSelf( new THREE.Vector3( 40, 25, 40 ) );
+					camera.position.copy( player.position ).addSelf(cameraVector.clone().multiplyScalar(-40).setY(25));
+					camera.lookAt( player.position );
+				}
 				}
 			}
 			
@@ -385,7 +389,7 @@ var player;
 			
 			document.addEventListener('keyup', function( ev ) {
 				switch ( ev.keyCode ) {
-					case 37: case 39: // left
+					case 37: case 39: // left //right
 						input.direction = 0;
 						break;
 
