@@ -11,7 +11,8 @@ var player, camera;
   var connected;
   var socketcdn="http://cdn.socket.io/stable/socket.io.js";
   var socketsrc="http://localhost:5000/socket.io/socket.io.js";
-	//var prevPosition;
+	var prevPosition;
+	var frameCount = 0;
 
   function include(url, callback) { 
     if(url instanceof Array) {
@@ -360,7 +361,7 @@ var player, camera;
 			input = {
 				power: 0,
 				direction: 0,
-				jump: null,
+				jump: false,
 				steering: 0
 			};
 			document.addEventListener('keydown', function( ev ) {
@@ -441,15 +442,7 @@ var player, camera;
         renderer.render(scene, camera);
 				scene.simulate();
 				
-				//update player position
-				if (players[0]) {
-					players[0].x = player.position.x;
-					players[0].y = player.position.y;
-					players[0].z = player.position.z;
-					for (var i = players.length - 1; i >= 0; i--) {
-						sendPosition(players[i]);
-					};
-				}
+				client_sendPosition();
       }
 			
 			//Multiplayer functionality ----------------------------------------------------------
@@ -472,7 +465,7 @@ var player, camera;
             //Sent when we are disconnected (network, server down, etc)
         //this.socket.on('disconnect', this.client_ondisconnect.bind(this));
             //Sent each tick of the server simulation. This is our authoritive update
-        this.socket.on('onserverupdate', client_onserverupdate_received.bind(this));
+        this.socket.on('onplayermovement', client_onplayermovement.bind(this));
             //Handle when we connect to the server, showing state and storing id's.
         this.socket.on('onconnected', client_onconnected.bind(this));
             //On error we just show that we are not connected for now. Can print the data.
@@ -496,9 +489,11 @@ var player, camera;
 					
 					//tell the server our position to verify the connection
 					this.socket.emit('verifiedconnection', {x:player.position.x, y:player.position.y, z:player.position.z});
+					//store our current position
+					prevPosition = player.position.clone();
 					
 					$.each( data.clients, function (id, client) {
-						players[id] = new networkPlayer(id, client.x, client.y, client.z);
+						client_addNewPlayer(id, client.x, client.y, client.z);
 						console.log("Existing player: ", id, '(', client.x, client.y, client.z, ')');
 					}); 
 					
@@ -506,10 +501,26 @@ var player, camera;
       }; //client_onconnected
 			
 			function client_onnewconnection(playerData) {
-					console.log('player ' + playerData.id + ' has connected. Position is ' + playerData.x + ', ' + playerData.y + ',' + playerData.z);
-					//
+				client_addNewPlayer(playerData.id, playerData.x, playerData.y, playerData.z);
+				console.log('player ' + playerData.id + ' has connected. Position is ' + playerData.x + ', ' + playerData.y + ',' + playerData.z);
 			};
+			
+			var sphereGeometry = new THREE.SphereGeometry( 10, 32, 16 ); 
+			var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
+			function client_addNewPlayer(id, x, y, z) {
+				players[id] = new networkPlayer(id, x, y, z);
+				//create a sphere
+				if (x, y, z) {
+						var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+						sphere.position.set( x, y, z );
+						scene.add(sphere);
+						players[id].model = sphere;
+					}
+			};
+			
 			function client_ondisconnection(id) {
+					scene.remove(players[id].model);
+					delete players[id];
 					console.log('player ' + id + ' has disconnected');
 					//remove player with the given userid
 			};
@@ -538,31 +549,26 @@ var player, camera;
           spheres.push(sphere); 
         };*/
       }
-      function sendPosition(p){
-        //this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
-      }
-			
-      function client_onserverupdate_received(data){
-        /*if(data.instanceof(Array)){
-          players=data;
-          console.log(data);
-        }
-        else{
-          console.log(data+"");
-        }*/
-				players = data;
-				
-				if (data.x, data.y, data.z) {
-				 var sphereGeometry = new THREE.SphereGeometry( 10, 32, 16 ); 
-          // use a "lambert" material rather than "basic" for realistic lighting.
-          //   (don't forget to add (at least one) light!)
-          var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
-					if (sphere)
-						scene.remove(sphere);
-          sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-          sphere.position.set( data.x, data.y, data.z );
-          scene.add(sphere);
+      function client_sendPosition(p){
+			//check only when connected to server
+				if (this.state === 'connected') {
+					//check only once every other frame
+					if (frameCount++ >= 2) {
+						frameCount = 0;
+						//update player position moved more than a particular threshold (expensive operation!)
+						if (prevPosition.clone().subSelf(player.position).length() > 5) {
+							prevPosition = player.position.clone();
+							console.log('Update Position!');
+							//tell the server our new position and id
+							this.socket.emit('updatePosition', {id: this.id, x:player.position.x, y:player.position.y, z:player.position.z});
+						}
+					}
 				}
+			}
+			
+      function client_onplayermovement(data){
+				players[data.id].model.position.set( data.x, data.y, data.z );
+				console.log(data.id + ' moved to ' + data.x + ', '+ data.y + ', ' + data.z);
 				//initPlayers();
       };
 			
