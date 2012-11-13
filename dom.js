@@ -453,7 +453,7 @@ var player, camera;
        function client_connect_to_server() {
         
         //Store a local reference to our connection to the server
-        this.socket = io.connect("http://localhost:5000");
+        this.socket = io.connect("http://domserver.herokuapp.com");
 
         //When we connect, we are not 'connected' until we have a server id
         //and are placed in a game by the server. The server sends us a message for that.
