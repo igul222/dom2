@@ -9,8 +9,8 @@ var player, camera;
 	var players = {};
   var id;
   var connected;
-  var socketcdn="http://cdn.socket.io/stable/socket.io.js";
-  var socketsrc="http://localhost:5000/socket.io/socket.io.js";
+  var base="http://domserver.herokuapp.com/public/javascripts/";
+  var socketsrc="http://domserver.herokuapp.com/socket.io/socket.io.js";
 	var prevPosition;
 	var frameCount = 0;
 
@@ -37,7 +37,7 @@ var player, camera;
     document.getElementsByTagName("head")[0].appendChild(script);
   }
 
-  include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js', 'stats.js', socketsrc], function() {
+  include([base+'jquery-1.8.2.min.js',base+'three.min.js',base+'html2canvas.js', base+'physi.js', base+'stats.js', socketsrc], function() {
 		Physijs.scripts.worker = 'physijs_worker.js';
 		Physijs.scripts.ammo = 'ammo.js';
 		var numberOfDomElements = 0;
@@ -61,7 +61,6 @@ var player, camera;
       };
 
       recursivelyAddElementToObjects($('body'), 1);
-			console.log("Number of DOM Elements: ", numberOfDomElements);
       return objects;
     }
 
@@ -558,7 +557,6 @@ var player, camera;
 						//update player position moved more than a particular threshold (expensive operation!)
 						if (prevPosition.clone().subSelf(player.position).length() > 5) {
 							prevPosition = player.position.clone();
-							console.log('Update Position!');
 							//tell the server our new position and id
 							this.socket.emit('updatePosition', {id: this.id, x:player.position.x, y:player.position.y, z:player.position.z});
 						}
@@ -568,7 +566,7 @@ var player, camera;
 			
       function client_onplayermovement(data){
 				players[data.id].model.position.set( data.x, data.y, data.z );
-				console.log(data.id + ' moved to ' + data.x + ', '+ data.y + ', ' + data.z);
+				//console.log(data.id + ' moved to ' + data.x + ', '+ data.y + ', ' + data.z);
 				//initPlayers();
       };
 			
