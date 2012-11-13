@@ -6,7 +6,7 @@
 var player, camera;
 (function(){
 
-	var players = [];
+	var players = {};
   var id;
   var connected;
   var socketcdn="http://cdn.socket.io/stable/socket.io.js";
@@ -39,11 +39,11 @@ var player, camera;
   include(['jquery-1.8.2.min.js','three.min.js','html2canvas.js', 'physi.js', 'stats.js', socketsrc], function() {
 		Physijs.scripts.worker = 'physijs_worker.js';
 		Physijs.scripts.ammo = 'ammo.js';
-		var integer = 0;
+		var numberOfDomElements = 0;
     function get3DPageObjects() {
       var objects = [];
       function recursivelyAddElementToObjects(e, zlevel) {
-				console.log(integer++);
+				numberOfDomElements++;
         var offset = e.offset();
         objects.push({
           x: offset.left, 
@@ -53,13 +53,14 @@ var player, camera;
           height: e.outerHeight(), 
           depth: 10
         });
-				//if(integer<120) //a limiter for the number of dom elements
+				//if(numberOfDomElements<120) //a limiter for the number of dom elements
         e.children().each(function() {
           recursivelyAddElementToObjects($(this), zlevel + 1);
         });
       };
 
       recursivelyAddElementToObjects($('body'), 1);
+			console.log("Number of DOM Elements: ", numberOfDomElements);
       return objects;
     }
 
@@ -123,7 +124,7 @@ var player, camera;
 				
 				//Random Block
 				for(var i = 0; i < 10; i++)
-				createBox();
+				//createBox();
 				
 				//Player Block
 				var player_material  = new THREE.MeshBasicMaterial({color: 0xcdecde});
@@ -143,8 +144,8 @@ var player, camera;
 				//box.addEventListener( 'collision', handleCollision );
 				//box.addEventListener( 'ready', spawnBox );
 				player.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation ) {
-					console.log(other_object, relative_velocity, relative_rotation);
-						// `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation`
+					//console.log(other_object, relative_velocity, relative_rotation);
+					// `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation`
 				});
 				scene.add( player );
 				
@@ -316,7 +317,7 @@ var player, camera;
 					var angle;
 					if ( input.direction !== 0 ) {
 						cameraAngleChange = input.direction * ROTATESPEED;
-						console.log("cameraVector", cameraVector, input.direction, cameraAngleChange);
+						//console.log("cameraVector", cameraVector, input.direction, cameraAngleChange);
 						var matrix = new THREE.Matrix4().makeRotationAxis( YAXIS, cameraAngleChange );
 						matrix.multiplyVector3( cameraVector );
 					}
@@ -340,7 +341,7 @@ var player, camera;
 					}*/
 					
 					if (input.jump === true ) {
-						console.log("PLAYER JUMP");
+						//console.log("PLAYER JUMP");
 						player.applyCentralForce(new THREE.Vector3(0, 5e3, 0))
 					} else {
 						//nojump
@@ -441,13 +442,14 @@ var player, camera;
 				scene.simulate();
 				
 				//update player position
-				players[0].x = player.position.x;
-				players[0].y = player.position.y;
-				players[0].z = player.position.z;
-				for (var i = players.length - 1; i >= 0; i--) {
-          sendPosition(players[i]);
-        };
-        initPlayers();
+				if (players[0]) {
+					players[0].x = player.position.x;
+					players[0].y = player.position.y;
+					players[0].z = player.position.z;
+					for (var i = players.length - 1; i >= 0; i--) {
+						sendPosition(players[i]);
+					};
+				}
       }
 			
 			//Multiplayer functionality ----------------------------------------------------------
@@ -477,23 +479,44 @@ var player, camera;
         //this.socket.on('error', this.client_ondisconnect.bind(this));
             //On message from the server, we parse the commands and send it to the handlers
         //this.socket.on('message', this.client_onnetmessage.bind(this));
-
+						//Sent when a new player connects
+				this.socket.on('onnewconnection', client_onnewconnection.bind(this));
+						//Sent when a player disconnects
+				this.socket.on('ondisconnection', client_ondisconnection.bind(this));
       }; //client_connect_to_server
 
       function client_onconnected(data) {
           //The server responded that we are now in a game,
           //this lets us store the information about ourselves and set the colors
           //to show we are now ready to be playing.
-          console.log(data.id);
+          console.log("Your client id is: ", data.id);
           this.id = data.id;
           this.state = 'connected';
           this.online = true;
-          players[0] = new networkPlayer(this.id, player.position.x, player.position.y, player.position.z);
+					
+					//tell the server our position to verify the connection
+					this.socket.emit('verifiedconnection', {x:player.position.x, y:player.position.y, z:player.position.z});
+					
+					$.each( data.clients, function (id, client) {
+						players[id] = new networkPlayer(id, client.x, client.y, client.z);
+						console.log("Existing player: ", id, '(', client.x, client.y, client.z, ')');
+					}); 
+					
+          //players[0] = new networkPlayer(this.id, player.position.x, player.position.y, player.position.z);
       }; //client_onconnected
+			
+			function client_onnewconnection(playerData) {
+					console.log('player ' + playerData.id + ' has connected. Position is ' + playerData.x + ', ' + playerData.y + ',' + playerData.z);
+					//
+			};
+			function client_ondisconnection(id) {
+					console.log('player ' + id + ' has disconnected');
+					//remove player with the given userid
+			};
 			
 			var spheres;
       function initPlayers(){
-				if (spheres !== undefined)
+				/*if (spheres !== undefined)
 					if (spheres.length > 0)
 						for (var i = 0; i < spheres.length; i++)
 							scene.remove(spheres[i]);
@@ -513,20 +536,34 @@ var player, camera;
           sphere.position.set(x, y, z);
           scene.add(sphere);
           spheres.push(sphere); 
-        };
+        };*/
       }
       function sendPosition(p){
-        this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
+        //this.socket.emit('location', {id:p.id, x:p.x, y:p.y, z:p.z});
       }
 			
       function client_onserverupdate_received(data){
-        if(data.instanceof(Array)){
+        /*if(data.instanceof(Array)){
           players=data;
           console.log(data);
         }
         else{
           console.log(data+"");
-        }
+        }*/
+				players = data;
+				
+				if (data.x, data.y, data.z) {
+				 var sphereGeometry = new THREE.SphereGeometry( 10, 32, 16 ); 
+          // use a "lambert" material rather than "basic" for realistic lighting.
+          //   (don't forget to add (at least one) light!)
+          var sphereMaterial = new THREE.MeshLambertMaterial( {color: 0x88ffff} ); 
+					if (sphere)
+						scene.remove(sphere);
+          sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+          sphere.position.set( data.x, data.y, data.z );
+          scene.add(sphere);
+				}
+				//initPlayers();
       };
 			
       function networkPlayer(id,x,y,z){
