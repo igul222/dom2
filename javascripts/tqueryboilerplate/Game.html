@@ -1,0 +1,46 @@
+<!doctype html><title>Minimal tQuery Page</title>
+<script src="vendor/tquery-bundle.js"></script>
+
+<script src="vendor/physijs/physi.js"></script>
+<script src="vendor/tquery.physijs.js"></script>
+
+<script src="vendor/tquery.meshlambertmaterial.js"></script>
+
+<script src='vendor/tquery.light.shadow.js'></script>
+
+<body><script>
+	var world	= tQuery.createWorld().boilerplate({cameraControls: false}).start();
+
+	world.tCamera().position.set( 70, 40, 70 );
+	world.tCamera().lookAt( world.tScene().position );
+
+	world.tRenderer().shadowMapEnabled	= true;
+	world.tRenderer().shadowMapSoft		= true;
+	world.tRenderer().setClearColorHex( 0xffffff, 1 );
+
+	world.enablePhysics({
+		pathWorker	: 'vendor/physijs/physijs_worker.js',
+	});
+
+	tQuery.createDirectionalLight().addTo(world)
+		.position(20, 40, -15).color(0xffffff)
+		.castShadow(true).shadowMap(512*2,512*2)
+		.shadowCamera(60, -60, 60, -60, 20, 200)
+		.shadowDarkness(0.7).shadowBias(.002)
+
+		
+	/*var texture = THREE.ImageUtils.loadTexture( "rock.jpg" );
+	texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+	taxture.repeat.set( 3, 3);
+	
+	var ground = tQuery.createCube(100, 1, 100).addTo(world)
+		.position(0, -10, 0)
+		.setLambertMaterial().map(texture).back()
+		.receiveShadow(true);
+	ground.enablePhysics({
+		mass	: 0
+	});
+	
+	var cTexture = THREE.ImageUtils.loadTexture( "wood.jpg" );*/
+	
+</script></body>
